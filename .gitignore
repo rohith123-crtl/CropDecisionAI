@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.env
+.env.*
+!.env.example
+backend/data/*.db
+*.sqlite
+*.sqlite3
+.DS_Store
+Thumbs.db

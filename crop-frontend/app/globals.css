@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #060d09;
+  --foreground: #e8f5e9;
+  --sidebar-width: 260px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(16, 185, 129, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(5, 150, 105, 0.08) 0%, transparent 40%),
+    linear-gradient(160deg, #060d09 0%, #0a1a10 60%, #060d09 100%);
+  color: var(--foreground);
+  font-family: var(--font-inter), Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.5); }
+
+/* ---------- Animations ---------- */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-18px) rotate(6deg); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(-4deg); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes chatPop {
+  0% { opacity: 0; transform: scale(0.85) translateY(16px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
+}
+
+.animate-float        { animation: float  7s ease-in-out infinite; }
+.animate-float2       { animation: float2 9s ease-in-out infinite; animation-delay: 3s; }
+.animate-slide-up     { animation: slideUp 0.5s ease both; }
+.animate-chat-pop     { animation: chatPop 0.25s ease both; }
+.animate-pulse-glow   { animation: pulse-glow 2.5s ease-in-out infinite; }
+
+/* ---------- Glassmorphism ---------- */
+.glass {
+  background: rgba(10, 26, 16, 0.65);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+.glass-dark {
+  background: rgba(5, 13, 8, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+/* ---------- Shimmer text ---------- */
+.shimmer-text {
+  background: linear-gradient(90deg, #6ee7b7, #10b981, #34d399, #10b981, #6ee7b7);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+
+/* ---------- Custom Range Slider ---------- */
+input[type=range] { -webkit-appearance: none; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track {
+  height: 8px;
+  background: rgba(16, 185, 129, 0.18);
+  border-radius: 8px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #34d399, #059669);
+  margin-top: -7px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.55);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.75);
+}
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+  width: var(--sidebar-width);
+  min-height: 100vh;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 50;
+}
+
+/* ---------- Main content ---------- */
+.main-content {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+}
+
+@media (max-width: 768px) {
+  :root { --sidebar-width: 0px; }
+  .sidebar { display: none; }
+  .main-content { margin-left: 0; }
+}
+
+/* ---------- Nav Link ---------- */
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  color: rgba(209,250,229,0.6);
+  font-weight: 500;
+  transition: all 0.25s ease;
+  text-decoration: none;
+  font-size: 15px;
+}
+.nav-link:hover {
+  background: rgba(16,185,129,0.12);
+  color: #6ee7b7;
+  transform: translateX(4px);
+}
+.nav-link.active {
+  background: rgba(16,185,129,0.18);
+  color: #34d399;
+  border-left: 3px solid #10b981;
+}
+
+/* ---------- History Card ---------- */
+.history-card {
+  background: rgba(10,26,16,0.55);
+  border: 1px solid rgba(16,185,129,0.12);
+  border-radius: 20px;
+  padding: 20px;
+  transition: all 0.25s ease;
+}
+.history-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(16,185,129,0.35);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.3);
+}
+
+/* ---------- Chatbot ---------- */
+.chat-panel {
+  position: fixed;
+  bottom: 96px;
+  right: 24px;
+  width: 360px;
+  max-height: 520px;
+  border-radius: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chat-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 101;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #059669, #10b981);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 8px 24px rgba(5,150,105,0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.chat-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 32px rgba(5,150,105,0.6);
+}
+.chat-message {
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 85%;
+}
+.chat-message.bot {
+  background: rgba(16,185,129,0.12);
+  border: 1px solid rgba(16,185,129,0.2);
+  color: #d1fae5;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+.chat-message.user {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
