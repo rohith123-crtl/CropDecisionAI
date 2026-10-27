@@ -1,19 +1,96 @@
-# Crop Decision AI — FastAPI + React
+# Crop Decision AI — CropWise 🌾
 
-A full-stack crop decision-support MVP.
+A full-stack, risk-aware agricultural decision-support and crop health platform combining Machine Learning with real-world agronomic models.
 
-## Stack
-- Frontend: React + Vite + Tailwind CSS
-- Backend: FastAPI + Pydantic
-- ML: scikit-learn RandomForest baseline
-- Recommendation: hybrid ML + agronomic constraints
-- Explainability: feature contributions from the hybrid scoring layer
+![CropWise Preview](docs/cropwise-preview.jpg)
 
-## Run backend
+---
+
+## Architecture & File Structure
+
+The project is structured as a clean full-stack monorepo with clear separation between the Python FastAPI backend, the React + Vite frontend, and deployment configurations:
+
+```
+AI_BCR/
+├── api/                             # Serverless deployment entrypoint
+│   └── index.py                     # Vercel serverless FastAPI handler
+│
+├── backend/                         # FastAPI Application & ML Services
+│   ├── app/
+│   │   ├── api/                     # REST API route controllers
+│   │   │   ├── accounts.py          # Google Auth, farm profile, & crop journal routes
+│   │   │   ├── crop_health.py       # Vision diagnostics & crop lifecycle roadmap API
+│   │   │   ├── crops.py             # Supported crop taxonomy & list endpoint
+│   │   │   ├── realtime.py          # Live Open-Meteo weather, soil & mandi market prices
+│   │   │   └── recommendations.py   # Hybrid ML crop recommendation endpoints
+│   │   ├── services/                # Core business logic & model engines
+│   │   │   ├── crop_health.py       # Image leaf diagnosis, disease symptoms & remedies
+│   │   │   ├── realtime.py          # Real-time satellite weather, topsoil moisture & pricing
+│   │   │   └── recommendation.py    # Random Forest ML model + agronomic scoring logic
+│   │   ├── accounts.py              # SQLite account database & Google auth verification
+│   │   ├── main.py                  # FastAPI application setup, CORS & middleware
+│   │   └── schemas.py               # Pydantic request/response data contracts
+│   ├── tests/                       # Automated test suite
+│   │   ├── test_accounts.py         # Auth & persistence tests
+│   │   └── test_recommendation_and_realtime.py # ML & realtime endpoint tests
+│   ├── .env.example                 # Environment configuration template
+│   └── requirements.txt             # Backend Python dependencies
+│
+├── frontend/                        # Modern React Single Page Application
+│   ├── public/
+│   │   └── assets/                  # Soil reference imagery (black, clay, red, sandy)
+│   ├── src/
+│   │   ├── components/              # Modular UI components
+│   │   │   ├── CropHealthView.jsx   # AI leaf diagnosis, timeline tracker & cycle roadmap
+│   │   │   ├── PictureCard.jsx      # Accessible visual selection cards
+│   │   │   ├── ProgressBar.jsx      # Wizard progress & mode toggle
+│   │   │   ├── ScoreCounter.jsx     # Animated suitability percentage counter
+│   │   │   ├── SeedlingLoader.jsx   # Animated botanical loading indicator
+│   │   │   └── WizardStep.jsx       # Wizard step transition wrapper
+│   │   ├── App.jsx                  # 5-step Farmer Wizard & ResultCard component
+│   │   ├── FarmApp.jsx              # Main dashboard shell (Overview, Planner, Health, etc.)
+│   │   ├── api.js                   # Unified fetch client with CSRF and error handling
+│   │   ├── cropHealthI18n.js        # Multilingual strings (en, te, hi, kn, ta, mr)
+│   │   ├── i18n.js                  # Internationalisation dictionary for planner
+│   │   ├── index.css                # Curated nature design system, tokens & dark mode
+│   │   ├── main.jsx                 # React root mount
+│   │   ├── mappings.js              # Agronomic lookup tables & payload builder
+│   │   └── utils.js                 # Geolocation, Open-Meteo client, TTS speech helpers
+│   ├── package.json                 # Frontend scripts & dependencies
+│   ├── tailwind.config.js           # Tailwind theme extension tokens
+│   └── vite.config.js               # Vite build & local API proxy configuration
+│
+├── docs/                            # Documentation assets & screenshots
+│   └── cropwise-preview.jpg         # Application overview screenshot
+│
+├── package.json                     # Root npm script runner (`npm run build`, `npm run dev`)
+├── requirements.txt                 # Root Python dependencies for cloud deployments
+├── pytest.ini                       # Test configuration for root pytest execution
+├── vercel.json                      # Full-stack production deployment configuration
+├── .gitignore                       # Git exclusion rules
+└── README.md                        # Documentation & setup guide
+```
+
+---
+
+## Tech Stack
+- **Frontend**: React 19 + Vite 6 + Vanilla CSS / Tailwind CSS + Framer Motion + Lucide Icons
+- **Backend**: FastAPI + Pydantic v2 + Uvicorn
+- **Machine Learning**: scikit-learn (Random Forest baseline trained on 2,200 Kaggle agricultural records)
+- **Agronomic Logic**: Hybrid ML probability + nutrient balance, seasonal constraints, water availability & soil pH penalties
+- **AI Vision Diagnostics**: Crop health image analysis with disease symptom detection, recovery timeline, and organic/chemical remedy roadmaps
+- **Real-Time Data**: Live Open-Meteo satellite weather (temp, humidity, rain) + topsoil moisture (0-10cm) + mandi commodity prices
+
+---
+
+## Quickstart
+
+### 1. Run Backend
 
 ```bash
 cd backend
 python -m venv .venv
+
 # Windows:
 .venv\Scripts\activate
 # macOS/Linux:
@@ -23,9 +100,9 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-API docs: http://localhost:8000/docs
+- API Docs: `http://localhost:8000/docs`
 
-## Run frontend
+### 2. Run Frontend
 
 ```bash
 cd frontend
@@ -33,99 +110,42 @@ npm install
 npm run dev
 ```
 
-Frontend: http://localhost:5173
+- Web App: `http://localhost:5173`
+- The Vite dev server automatically proxies `/api` calls to `http://localhost:8000`.
 
-The frontend expects the API at `http://localhost:8000`.
+### 3. Run Automated Tests
 
-## Dataset & Real-Time Intelligence
-- **Real-World Agricultural Dataset**: Trained on 2,200 authentic Indian agricultural field records from the Kaggle Crop Recommendation dataset across 22 crops (`Rice`, `Maize`, `Chickpea`, `Cotton`, `Pigeonpeas`, `Banana`, `Mango`, `Grapes`, `Pomegranate`, `Jute`, `Coffee`, etc.) with 99.1% validation accuracy.
-- **Live Real-Time Weather & Soil**: Fetches live temperature, humidity, rainfall, and topsoil satellite reanalysis (soil moisture & soil temperature at 0-10cm) via Open-Meteo APIs (`/api/realtime/environment`).
-- **Live Mandi Commodity Prices**: Live wholesale mandi market prices and price trend indices (`/api/realtime/market-prices`) integrated into crop profitability rankings.
+Run backend tests from repository root:
+```bash
+pytest
+```
+
+Run frontend test suite:
+```bash
+npm --prefix frontend test
+```
 
 ---
 
-## Farmer-Friendly Wizard Flow
+## Key Features
 
-The frontend has been redesigned for low-literacy smallholder farmers. Instead of one long form with 12 technical fields, there is a **5-step wizard** with one question per screen, picture cards, and voice support.
+### 1. Farmer-Friendly 5-Step Wizard Flow
+Designed specifically for smallholder farmers with picture cards, regional language localization, and voice narration:
+- **Step 0: Language Selection** — English, Telugu (తెలుగు), Hindi (हिन्दी)
+- **Step 1: Location & Season** — GPS auto-detect or place name search; automatically fetches live weather and infers Kharif/Rabi/Zaid season
+- **Step 2: Soil Profile** — Soil Health Card lab values (N, P, K, pH) or intuitive visual cards (soil color + growth quality)
+- **Step 3: Water & Acreage** — Rainfed, canal, borewell, or drip irrigation with farm area slider
+- **Step 4: Crop Rotation** — Previous crop history to avoid monoculture depletion
+- **Step 5: Farming Objective** — Maximum profit, low risk, water conservation, or balanced output
 
-### Wizard steps
+### 2. Crop Health & Disease Diagnostics
+- **Leaf & Canopy Analysis**: Upload a picture from phone camera or test with pre-loaded presets (Tomato Early Blight, Corn Rust, Cotton Leaf Curl, Rice Blast)
+- **Health Indicators**: Canopy greenness score, chlorosis (yellowing), necrosis (lesions), and immediate treatment urgency
+- **Curative Roadmaps**: Chemical fungicides/antibiotics alongside residue-free organic/biological controls
+- **Overtime Timeline**: Track crop health progress across successive field scans
+- **Multilingual Support**: Available in English, Telugu, Hindi, Kannada, Tamil, and Marathi
 
-| Step | What the farmer sees | What it maps to |
-|------|---------------------|-----------------|
-| **0. Language** | English / Telugu / Hindi picker + privacy notice | Sets UI language (`i18n.js`) |
-| **1. Location** | "Where is your farm?" — text input or GPS button | Auto-fetches temperature, humidity, rainfall from Open-Meteo. Auto-detects season from today's date. |
-| **2. Soil** | Three paths: Soil Health Card, "I don't know" (picture cards for soil colour + growth quality), or "Use my area's average" | Maps to N, P, K, pH via lookup table (`mappings.js` → `SOIL_COLOR_MAP` + `GROWTH_MULTIPLIER`) |
-| **3. Water + Area** | Picture cards: Rain / Canal / Borewell / Drip. Area slider in acres with guntas readout. | Maps water source to litres/day/acre (`WATER_SOURCE_MAP`). Multiplies by farm area. |
-| **4. Previous crop** | Grid of emoji + text cards for 7 crops + "Nothing" | Sends crop name string to API |
-| **5. Objective** | 4 plain-language goals: "Maximum profit", "Safe and steady", "Save water", "Balanced" | Maps to API keys: `income`, `low_risk`, `water_saving`, `balanced` |
-| **Results** | Traffic-light cards (🟢 Very Good / 🟡 Good / 🔴 Risky) with "Why this crop?" in 2-3 lines. "Expert details" toggle shows confidence, factor bars. | Directly renders API response |
-
-**Expert mode** (toggle in progress bar) restores the original 12-field form for agriculture officers and students.
-
-### Key source files
-
-| File | Purpose |
-|------|---------|
-| `src/i18n.js` | All UI strings for en, te, hi |
-| `src/mappings.js` | Lookup tables + `buildApiPayload()` assembler |
-| `src/utils.js` | Open-Meteo weather fetch, GPS, Web Speech API, localStorage |
-| `src/App.jsx` | Wizard steps, results, expert mode |
-
-### How to add a language
-
-1. Open `src/i18n.js`.
-2. Copy the entire `en` object and rename it (e.g. `const kn = { ... }`).
-3. Translate every string value. Functions like `stepOf` accept parameters — keep the arrow function, translate only the template string.
-4. Add an entry to the `LANGUAGES` array: `{ code: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ', voiceCode: 'kn-IN' }`.
-5. Register the object in `const strings = { en, te, hi, kn }`.
-
-### Mapping table assumptions
-
-All mapping values in `mappings.js` are documented with inline comments. Key assumptions to verify with an agronomist:
-
-- **Soil colour → N/P/K/pH**: median values from ICAR Soil Health Card scheme published ranges.
-- **Growth multiplier**: Poor = 0.75×, Average = 1.0×, Good = 1.15× applied to N, P, K.
-- **Water source → litres/day/acre**: Rain-only 400 L, Canal 1200 L, Borewell 1800 L, Drip 2200 L.
-- **Season detection**: Kharif Jun 1 – Oct 15, Rabi Oct 16 – Feb 28, Zaid Mar 1 – May 31. Zaid maps to kharif for the model.
-- **Budget** is hardcoded at ₹50,000 (demo default) since the model doesn't vary strongly on it.
-
-
-## Accounts, profiles, and crop history
-
-The Cropwise dashboard includes Google sign-in, an editable farm profile, saved recommendation history with the original farm inputs, and a crop journal with planned / growing / harvested stages. Crop records can be edited or deleted. The guest planner remains available without sign-in; guest recommendations are not saved to an account.
-
-Account data is stored in SQLite at `backend/data/crop.db`. Back up this file and keep it private. `DATABASE_PATH` can point to another persistent location. Every profile, history, and journal request is scoped to the signed-in user. Google ID tokens are verified on the server; the browser receives an opaque, HttpOnly session cookie, not a stored Google token. Sessions expire after seven days and are revoked at sign-out.
-
-### Enable Google sign-in
-
-1. In [Google Cloud Console](https://console.cloud.google.com/), create or select your project and configure Google Auth Platform branding, audience, and contact details. If the app is in testing, add the Google accounts that will test it.
-2. Create an OAuth client of type **Web application**. Add `http://localhost:5173` and `http://127.0.0.1:5173` under **Authorized JavaScript origins**. If using the preview on port 5174, add that exact origin too. This implementation uses Google's JavaScript credential callback; it does not require an OAuth redirect endpoint or client secret.
-3. Copy the client ID. Create `backend/.env` from `backend/.env.example` and replace `GOOGLE_CLIENT_ID` with the real value. Do not put a client secret in the frontend.
-4. From `backend`, install dependencies and start the API with its environment file:
-
-   ```powershell
-   .venv/Scripts/python.exe -m pip install -r requirements.txt
-   .venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000 --env-file .env
-   ```
-
-5. From `frontend`, run `npm install` and `npm run dev`. Open the app and select **Sign in**. If no client ID is configured, the app explains that setup is pending instead of simulating a login.
-
-Official references: [Google web client setup](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid) and [server-side token verification](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token).
-
-### Hosting
-
-The frontend now calls `/api` on its own origin. Vite forwards this to `http://127.0.0.1:8000` during development and preview. In production, configure your HTTPS host/reverse proxy to send `/api` to FastAPI and serve the built frontend from the same origin. Set `COOKIE_SECURE=true`, configure `ALLOWED_ORIGINS` for the real origin, and register that exact HTTPS origin with Google. Persist and back up the SQLite data directory. A multi-instance deployment should use a shared transactional database rather than separate SQLite files.
-
-### Checks
-
-```powershell
-# frontend
-npm test
-npm run build
-# backend
-.venv/Scripts/python.exe -m unittest discover -s tests -v
-```
-
-Authentication tests mock Google's external token verifier, then exercise real sessions, profile persistence, history, crop records, rejected credentials, and separation between accounts. They do not substitute for a final sign-in test with a configured Google client ID.
-
-The dashboard uses an original SVG botanical illustration, translucent panels, responsive navigation, gently animated leaves, and reduced-motion support. New account/dashboard screens are in English; the crop planner retains English, Telugu, and Hindi.
+### 3. Google Sign-In & Crop Journal
+- Save and review recommendation histories across seasons
+- Log planted crops with acreage, planting date, and stage (Planned, Growing, Harvested)
+- SQLite database persistence with HttpOnly cookie sessions

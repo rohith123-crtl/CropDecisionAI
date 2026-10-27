@@ -6,3 +6,9 @@ __pycache__/
 *.pyc
 .env
 .env.local
+.pytest_cache/
+backend/.pytest_cache/
+.coverage
+*.egg-info/
+.DS_Store
+Thumbs.db
