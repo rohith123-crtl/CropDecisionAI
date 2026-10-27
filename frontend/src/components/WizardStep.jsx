@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export function WizardStep({ children, direction = 1, isActive = true }) {
+export function WizardStep({ children, direction = 1 }) {
   const variants = {
     enter: (dir) => ({
       x: dir > 0 ? 24 : -24,

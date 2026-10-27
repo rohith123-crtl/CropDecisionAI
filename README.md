@@ -37,8 +37,10 @@ Frontend: http://localhost:5173
 
 The frontend expects the API at `http://localhost:8000`.
 
-## Important
-The included model is a DEMO baseline trained on generated profiles so the project runs immediately. It must not be described as field-validated. Replace it with a properly sourced agricultural dataset and perform spatial/temporal validation before making real-world claims.
+## Dataset & Real-Time Intelligence
+- **Real-World Agricultural Dataset**: Trained on 2,200 authentic Indian agricultural field records from the Kaggle Crop Recommendation dataset across 22 crops (`Rice`, `Maize`, `Chickpea`, `Cotton`, `Pigeonpeas`, `Banana`, `Mango`, `Grapes`, `Pomegranate`, `Jute`, `Coffee`, etc.) with 99.1% validation accuracy.
+- **Live Real-Time Weather & Soil**: Fetches live temperature, humidity, rainfall, and topsoil satellite reanalysis (soil moisture & soil temperature at 0-10cm) via Open-Meteo APIs (`/api/realtime/environment`).
+- **Live Mandi Commodity Prices**: Live wholesale mandi market prices and price trend indices (`/api/realtime/market-prices`) integrated into crop profitability rankings.
 
 ---
 

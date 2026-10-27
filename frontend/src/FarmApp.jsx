@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
-import { ArrowUpRight, ArrowRight, Sprout, Leaf, LayoutDashboard, BookOpen, History, UserRound, LogOut, Plus, MapPin, Pencil, Sun, X, Check, Trash2, ChevronRight, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Sprout, Leaf, LayoutDashboard, BookOpen, History, UserRound, LogOut, Plus, MapPin, Pencil, Sun, Moon, X, Check, Trash2, ChevronRight, ShieldCheck, Activity } from 'lucide-react';
 import Wizard, { ResultCard } from './App';
+import CropHealthView from './components/CropHealthView';
 import { api } from './api';
+import { stopSpeaking } from './utils';
 
-const nav = [['overview', LayoutDashboard, 'Overview'], ['planner', Sprout, 'Crop planner'], ['history', History, 'Recommendation history'], ['journal', BookOpen, 'Crop journal'], ['profile', UserRound, 'My profile']];
+const nav = [['overview', LayoutDashboard, 'Overview'], ['planner', Sprout, 'Crop planner'], ['health', Activity, 'Crop health & diagnostics'], ['history', History, 'Recommendation history'], ['journal', BookOpen, 'Crop journal'], ['profile', UserRound, 'My profile']];
 const enter = { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 }, transition: { duration: .28 } };
 
 function GoogleButton({ onLogin }) {
@@ -63,6 +65,32 @@ export default function FarmApp() {
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState('');
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cropwise_theme');
+      if (saved) return saved;
+      return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    try {
+      localStorage.setItem('cropwise_theme', theme);
+    } catch {}
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   const generation = useRef(0);
   const refresh = async () => {
     const current = ++generation.current;
@@ -74,15 +102,15 @@ export default function FarmApp() {
   };
   useEffect(() => { api('/me').then(setUser).catch(e => { if (e.status !== 401) setError('The farm service is unavailable. You can explore the app and retry later.'); }); }, []);
   useEffect(() => { if (user) refresh(); else { ++generation.current; setHistory([]); setJournal([]); setLoaded(false); } }, [user?.id]);
-  const navigate = next => { setPage(next); setNotice(''); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const navigate = next => { stopSpeaking(); setPage(next); setNotice(''); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const logout = async () => {
     setBusy(true);
     try { await api('/auth/logout', { method: 'POST' }); window.google?.accounts.id.disableAutoSelect(); setUser(null); setPage('overview'); setSelected(null); }
     catch(e) { setError(e.message); } finally { setBusy(false); }
   };
   const authenticated = content => user ? content : <div className="glass-panel empty-state"><ShieldCheck size={40}/><h2>A little space for your farm.</h2><p>Sign in to keep your farm profile, crop journal, and recommendations together, wherever you are.</p><button className="forest-button" onClick={() => setSignIn(true)}>Sign in with Google <ArrowRight size={18}/></button></div>;
-  return <MotionConfig reducedMotion="user"><div className="nature-app">
-    <div className="ambient ambient-one"/><div className="ambient ambient-two"/><div className="grain"/>
+  return <MotionConfig reducedMotion="user"><div className={`nature-app ${theme === 'dark' ? 'dark-theme' : ''}`}>
+    <div className="ambient ambient-one"/><div className="ambient ambient-two"/><div className="ambient ambient-three"/><div className="grain"/>
     <aside className="farm-sidebar">
       <a href="#" className="brand" onClick={e => { e.preventDefault(); navigate('overview'); }}><span className="brand-mark"><Sprout/></span><span>crop<span className="brand-light">wise</span><small>ROOTED IN POSSIBILITY</small></span></a>
       <div className="sidebar-label">YOUR GROWING SPACE</div>
@@ -91,7 +119,28 @@ export default function FarmApp() {
       <button className="sidebar-user" onClick={() => user ? navigate('profile') : setSignIn(true)}><Avatar user={user}/><span><strong>{user?.name || 'Your farm, your story'}</strong><small>{user ? 'View your profile' : 'Sign in to make it yours'}</small></span><ChevronRight size={16}/></button>
     </aside>
     <main className="farm-main">
-      <header className="farm-topbar"><div className="breadcrumb">Your workspace <span>/</span> <strong>{nav.find(n => n[0] === page)?.[2]}</strong></div><div className="topbar-actions"><span className="nature-pill"><span/> A little closer to nature</span><button className="avatar-button" aria-label={user ? 'Open profile' : 'Sign in'} onClick={() => user ? navigate('profile') : setSignIn(true)}><Avatar user={user}/></button></div></header>
+      <header className="farm-topbar">
+        <div className="breadcrumb">Your workspace <span>/</span> <strong>{nav.find(n => n[0] === page)?.[2]}</strong></div>
+        <div className="topbar-actions">
+          <span className="nature-pill"><span/> A little closer to nature</span>
+          <button
+            type="button"
+            className="theme-toggle-pill"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            <span className="theme-toggle-icon">
+              {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+            </span>
+            <span className="theme-toggle-label">
+              {theme === 'dark' ? 'Dark' : 'Light'}
+            </span>
+            <span className="theme-toggle-indicator" />
+          </button>
+          <button className="avatar-button" aria-label={user ? 'Open profile' : 'Sign in'} onClick={() => user ? navigate('profile') : setSignIn(true)}><Avatar user={user}/></button>
+        </div>
+      </header>
       {error && <div className="status-message error" role="alert">{error}<button onClick={() => user ? refresh() : window.location.reload()}>Retry</button></div>}
       {notice && <div className="status-message" role="status"><Check size={17}/>{notice}</div>}
       <AnimatePresence mode="wait"><motion.div key={page} {...enter}>
@@ -99,9 +148,25 @@ export default function FarmApp() {
         <div className="page-heading"><div><div className="eyebrow">A FRESH PERSPECTIVE ON FARMING</div><h1>{user ? `Welcome back, ${user.name.split(' ')[0]}.` : 'Let your next season flourish.'}</h1><p>Thoughtful choices today. A thriving farm tomorrow.</p></div><span className="date-label">{new Intl.DateTimeFormat('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date())}</span></div>
         <section className="hero-garden"><div className="hero-copy"><span className="hero-label"><Leaf size={15}/> GROWN FROM BETTER DECISIONS</span><h2>In tune with your land.<br/><em>Ready for what’s next.</em></h2><p>Find crops that belong in your soil, suit your water, and support your goals. Your next chapter starts with a seed.</p><button className="cream-button" onClick={() => navigate('planner')}>Find my next crop <ArrowUpRight size={19}/></button><div className="hero-footnote"><span className="tiny-sun"/> Made for your soil. Guided by your goals.</div></div><Botanical/><div className="plant-tag"><span className="plant-tag-icon"><Sprout size={23}/></span><span>Small steps.<br/><strong>Stronger roots.</strong></span></div></section>
         <div className="stat-grid"><Stat icon={MapPin} label="YOUR LAND" value={user ? `${user.farm_area} acres` : 'Your plot awaits'} detail={user?.location || 'Every field has a story'}/><Stat icon={Sprout} label="CROP JOURNAL" value={user && loaded ? `${journal.filter(c => c.status === 'growing').length} growing` : 'Room to grow'} detail={user && loaded ? `${journal.length} crop records in your journal` : 'Keep every season close'}/><Stat icon={History} label="SAVED INSIGHTS" value={user && loaded ? `${history.length} recommendations` : 'A fresh beginning'} detail="Better decisions, season after season"/></div>
+        <div className="glass-panel health-promo-banner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#365c40', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <Activity size={24} />
+            </div>
+            <div>
+              <span className="eyebrow" style={{ color: '#43693f', marginBottom: '2px', display: 'block' }}>NEW: AI CROP PATHOLOGY & HEALTH TRACKER</span>
+              <h3 style={{ fontSize: '18px', margin: '0 0 4px' }}>Diagnose Crop Health by Photo</h3>
+              <p style={{ fontSize: '12px', margin: 0 }}>Detect leaf diseases early, track health recovery over time, and receive start-to-end crop cycle remedies.</p>
+            </div>
+          </div>
+          <button className="forest-button" style={{ whiteSpace: 'nowrap', flexShrink: 0 }} onClick={() => navigate('health')}>
+            Check crop health <ArrowRight size={17} />
+          </button>
+        </div>
         <div className="overview-bottom"><section className="glass-panel"><div className="section-heading"><div><div className="eyebrow">YOUR FIELD NOTES</div><h2>Recent recommendations</h2></div><button className="text-button" onClick={() => navigate('history')}>View all <ArrowUpRight size={16}/></button></div>{user && history.length ? history.slice(0,3).map(h => <HistoryRow key={h.id} record={h} open={() => setSelected(h)}/>) : <div className="gentle-empty"><span className="empty-leaf"><Sprout size={30}/></span><h3>Your next season starts here.</h3><p>Run your first crop plan to turn your farm’s details into useful insights.</p><button className="text-button" onClick={() => navigate('planner')}>Create a crop plan <ArrowRight size={17}/></button></div>}</section><section className="season-card"><span className="eyebrow">A MINDFUL MOMENT</span><Sun size={36} strokeWidth={1}/><h2>Know your soil.<br/>Nurture your future.</h2><p>Your soil is the foundation of every harvest. Add your soil health card values for a more personal crop plan.</p><button className="text-button" onClick={() => navigate('planner')}>Explore your possibilities <ArrowUpRight size={16}/></button></section></div>
       </>}
       {page === 'planner' && <><PageTitle eyebrow="PLANT WITH PURPOSE" title="Your next crop, thoughtfully chosen." text="A few details about your farm. A clearer view of what could grow."/>{!user && <div className="status-message">Exploring as a guest. <button onClick={() => setSignIn(true)}>Sign in to save future recommendations</button></div>}<div className="planner-container glass-panel"><Wizard key={user?.id || 'guest'} profile={user} onSaved={() => { if (user) refresh(); }}/></div></>}
+      {page === 'health' && <><PageTitle eyebrow="AI DIAGNOSTICS & LIFECYCLE PATHOLOGY" title="Crop health & overtime analysis." text="Upload a picture of your crop leaves or canopy to identify diseases early, track recovery over time, and follow end-to-end cycle guidance." action={<button className="forest-button" onClick={() => navigate('planner')}><Sprout size={18}/> Plan next crop</button>}/><CropHealthView user={user} journalCrops={journal} onGoToPlanner={() => navigate('planner')}/></>}
       {page === 'history' && <><PageTitle eyebrow="INSIGHTS THROUGH THE SEASONS" title="Your recommendation history." text="Every crop plan, with the farm details and recommendations behind it."/>{authenticated(<section className="glass-panel">{!loaded ? <p role="status">Loading your recommendations…</p> : history.length ? history.map(h => <HistoryRow key={h.id} record={h} open={() => setSelected(h)}/>) : <Empty title="A blank page. Endless possibilities." text="Your crop recommendations will be saved here automatically." action={() => navigate('planner')} label="Create a crop plan"/>}</section>)}</>}
       {page === 'journal' && <><PageTitle eyebrow="FROM SEED TO SEASON" title="Your crop journal." text="Keep a simple record of what you plant, nurture, and harvest." action={user && <button className="forest-button" onClick={() => { setEditing(null); setRecordOpen(true); }}><Plus size={18}/> Add a crop</button>}/>{authenticated(<section className="journal-grid">{!loaded ? <p role="status">Loading your journal…</p> : journal.length ? journal.map(c => <article key={c.id} className="glass-panel crop-entry"><div className="section-heading"><span className={`crop-status ${c.status}`}>{c.status}</span><button className="icon-button" aria-label={`Edit ${c.crop} record`} onClick={() => { setEditing(c); setRecordOpen(true); }}><Pencil size={16}/></button><button className="icon-button" aria-label={`Delete ${c.crop} record`} onClick={async () => { if (!window.confirm(`Delete this ${c.crop} record?`)) return; try { await api(`/journal/${c.id}`, { method: 'DELETE' }); await refresh(); } catch(e) { setError(e.message); } }}><Trash2 size={16}/></button></div><Sprout className="crop-sprout" size={40}/><h2>{c.crop}</h2><p>{c.area} acres · {c.planted_on}</p>{c.notes && <p className="crop-notes">{c.notes}</p>}</article>) : <div className="glass-panel full-width"><Empty title="Every harvest has a beginning." text="Add your first crop to start a record of your farm’s journey." action={() => { setEditing(null); setRecordOpen(true); }} label="Add your first crop"/></div>}</section>)}</>}
       {page === 'profile' && <><PageTitle eyebrow="THE PERSON BEHIND THE HARVEST" title="A space that’s yours." text="Your details help make your next crop plan feel a little more personal."/>{authenticated(<Profile user={user} busy={busy} logout={logout} onSave={u => { setUser(u); setNotice('Your profile has been saved.'); }}/>)}</>}

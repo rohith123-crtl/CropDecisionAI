@@ -11,17 +11,45 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import Path as PathParam
 from pydantic import BaseModel, Field
 
 router = APIRouter()
 COOKIE = "crop_session"
 SESSION_AGE = 7 * 24 * 3600
+MAX_SESSIONS_PER_USER = 5
+
+
+# ── Simple in-memory rate limiter for auth endpoints ─────────────────────────
+import collections
+_rate_store: dict[str, collections.deque] = {}
+_RATE_LIMIT = 20   # max requests
+_RATE_WINDOW = 60  # per 60 seconds
+
+def _check_rate_limit(request: Request):
+    """Raises 429 if the client IP exceeds the auth rate limit."""
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    window = _rate_store.setdefault(ip, collections.deque())
+    # Purge old entries
+    while window and window[0] < now - _RATE_WINDOW:
+        window.popleft()
+    if len(window) >= _RATE_LIMIT:
+        raise HTTPException(429, "Too many requests. Please try again later.")
+    window.append(now)
 
 
 @contextmanager
 def connect():
-    path = Path(os.getenv("DATABASE_PATH", str(Path(__file__).resolve().parents[1] / "data" / "crop.db")))
+    is_vercel = bool(os.getenv("VERCEL"))
+    default_db = "/tmp/crop.db" if is_vercel else str(Path(__file__).resolve().parents[1] / "data" / "crop.db")
+    path = Path(os.getenv("DATABASE_PATH", default_db))
     path.parent.mkdir(parents=True, exist_ok=True)
+    if is_vercel and not path.exists():
+        seed = Path(__file__).resolve().parents[1] / "data" / "crop.db"
+        if seed.exists():
+            import shutil
+            shutil.copyfile(seed, path)
     db = sqlite3.connect(path, timeout=15)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
@@ -54,6 +82,15 @@ def init_db():
             crop TEXT NOT NULL, planted_on TEXT NOT NULL, status TEXT NOT NULL,
             area REAL NOT NULL, notes TEXT NOT NULL, created_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS crop_health_logs (
+            id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
+            crop_name TEXT NOT NULL, growth_stage TEXT NOT NULL,
+            scan_date TEXT NOT NULL, image_url TEXT NOT NULL,
+            health_status TEXT NOT NULL, health_score INTEGER NOT NULL,
+            disease_detected TEXT NOT NULL, severity TEXT NOT NULL,
+            symptoms TEXT NOT NULL, diagnosis_details TEXT NOT NULL,
+            lifecycle_plan TEXT NOT NULL, created_at INTEGER NOT NULL
+        );
         ''')
 
 
@@ -79,15 +116,19 @@ def require_user(user=Depends(optional_user)):
 
 
 def set_cookie(response, name, value, age):
-    response.set_cookie(name, value, max_age=age, httponly=True, secure=os.getenv("COOKIE_SECURE", "false").lower() == "true", samesite="lax", path="/api")
+    is_secure = os.getenv("COOKIE_SECURE", "true" if os.getenv("VERCEL") else "false").lower() == "true"
+    response.set_cookie(name, value, max_age=age, httponly=True, secure=is_secure, samesite="lax", path="/api")
 
 
 @router.get("/auth/config")
-def auth_config(response: Response):
+def auth_config(request: Request, response: Response):
+    _check_rate_limit(request)
     nonce = secrets.token_urlsafe(32)
+    now = int(time.time())
     with connect() as db:
-        db.execute("DELETE FROM challenges WHERE expires<?", (int(time.time()),))
-        db.execute("INSERT INTO challenges VALUES (?, ?)", (digest(nonce), int(time.time()) + 600))
+        db.execute("DELETE FROM challenges WHERE expires<?", (now,))
+        db.execute("DELETE FROM sessions WHERE expires<?", (now,))
+        db.execute("INSERT INTO challenges VALUES (?, ?)", (digest(nonce), now + 600))
     set_cookie(response, "crop_nonce", nonce, 600)
     response.headers["Cache-Control"] = "no-store"
     return {"client_id": os.getenv("GOOGLE_CLIENT_ID", ""), "nonce": nonce}
@@ -99,6 +140,7 @@ class GoogleLogin(BaseModel):
 
 @router.post("/auth/google")
 def google_login(body: GoogleLogin, request: Request, response: Response):
+    _check_rate_limit(request)
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     if not client_id:
         raise HTTPException(503, "Google sign-in has not been configured yet.")
@@ -124,10 +166,34 @@ def google_login(body: GoogleLogin, request: Request, response: Response):
             raise HTTPException(401, "Please start sign-in again.")
         db.execute("INSERT INTO users(id,email,name,picture,created_at) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET email=excluded.email,picture=excluded.picture", (info["sub"], info.get("email", ""), info.get("name", "Farmer"), info.get("picture", ""), now))
         db.execute("DELETE FROM sessions WHERE expires<? OR token=?", (now, digest(request.cookies.get(COOKIE, ""))))
+        # Enforce max sessions per user — purge oldest if over limit
+        existing = db.execute("SELECT token FROM sessions WHERE user_id=? ORDER BY expires ASC", (info["sub"],)).fetchall()
+        if len(existing) >= MAX_SESSIONS_PER_USER:
+            for row in existing[:len(existing) - MAX_SESSIONS_PER_USER + 1]:
+                db.execute("DELETE FROM sessions WHERE token=?", (row["token"],))
         db.execute("INSERT INTO sessions VALUES(?,?,?)", (digest(token), info["sub"], now + SESSION_AGE))
         user = dict(db.execute("SELECT * FROM users WHERE id=?", (info["sub"],)).fetchone())
     set_cookie(response, COOKIE, token, SESSION_AGE)
     response.delete_cookie("crop_nonce", path="/api")
+    return user
+
+
+@router.post("/auth/demo")
+def demo_login(request: Request, response: Response):
+    """Provides a 1-click test login for testing farm profiles, journal and history."""
+    _check_rate_limit(request)
+    now = int(time.time())
+    demo_user_id = "demo_farmer_user"
+    token = secrets.token_urlsafe(48)
+    with connect() as db:
+        db.execute("""
+            INSERT INTO users(id, email, name, picture, farm_name, location, farm_area, created_at)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET name=excluded.name
+        """, (demo_user_id, "farmer@cropwise.local", "Farmer Ramesh", "", "Green Valley Farm", "Warangal, Telangana", 3.5, now))
+        db.execute("INSERT INTO sessions VALUES(?,?,?)", (digest(token), demo_user_id, now + SESSION_AGE))
+        user = dict(db.execute("SELECT * FROM users WHERE id=?", (demo_user_id,)).fetchone())
+    set_cookie(response, COOKIE, token, SESSION_AGE)
     return user
 
 
@@ -200,7 +266,7 @@ def add_crop(body: CropEntry, user=Depends(require_user)):
 
 
 @router.delete("/journal/{record_id}")
-def delete_crop(record_id: str, user=Depends(require_user)):
+def delete_crop(record_id: str = PathParam(..., pattern=r"^[0-9a-f]{32}$"), user=Depends(require_user)):
     with connect() as db:
         if db.execute("DELETE FROM crops WHERE id=? AND user_id=?", (record_id, user["id"])).rowcount != 1:
             raise HTTPException(404, "Crop record not found.")
@@ -208,7 +274,7 @@ def delete_crop(record_id: str, user=Depends(require_user)):
 
 
 @router.patch("/journal/{record_id}")
-def update_crop(record_id: str, body: CropEntry, user=Depends(require_user)):
+def update_crop(record_id: str = PathParam(..., pattern=r"^[0-9a-f]{32}$"), body: CropEntry = ..., user=Depends(require_user)):
     if not body.crop.strip():
         raise HTTPException(422, "Please enter a crop name.")
     with connect() as db:

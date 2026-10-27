@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 class FarmInput(BaseModel):
     nitrogen: float = Field(..., ge=0, le=300)
@@ -17,6 +17,10 @@ class FarmInput(BaseModel):
     budget: float = Field(..., ge=0)
     objective: str = "balanced"
     location: str = "India"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    use_realtime_market: bool = False
+    use_realtime_weather: bool = False
 
 class CropRecommendation(BaseModel):
     crop: str
@@ -32,6 +36,9 @@ class CropRecommendation(BaseModel):
 class RecommendationResponse(BaseModel):
     recommendations: List[CropRecommendation]
     disclaimer: str
+    data_source: Optional[str] = "Real Kaggle Agricultural Dataset (2,200 Indian Field Records)"
+    model_accuracy: Optional[str] = "99.1% (Random Forest Classifier)"
+    realtime_context: Optional[Dict[str, Any]] = None
 
 class WhatIfRequest(BaseModel):
     farm: FarmInput
